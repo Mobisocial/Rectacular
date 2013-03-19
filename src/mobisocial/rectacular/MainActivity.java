@@ -1,13 +1,22 @@
 package mobisocial.rectacular;
 
+import java.util.List;
+
+import mobisocial.socialkit.musubi.DbFeed;
+import mobisocial.socialkit.musubi.DbIdentity;
+import mobisocial.socialkit.musubi.Musubi;
 import android.app.ActionBar;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -21,6 +30,13 @@ public class MainActivity extends FragmentActivity implements
      * current dropdown position.
      */
     private static final String STATE_SELECTED_NAVIGATION_ITEM = "selected_navigation_item";
+    
+    private static final String ACTION_CREATE_FEED = "musubi.intent.action.CREATE_FEED";
+    private static final int REQUEST_CREATE_FEED = 1;
+
+    private static final String TAG = "MainActivity";
+    
+    private Musubi mMusubi;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +57,8 @@ public class MainActivity extends FragmentActivity implements
                                 getString(R.string.title_section1),
                                 getString(R.string.title_section2),
                                 getString(R.string.title_section3), }), this);
+        
+        mMusubi = Musubi.getInstance(this);
     }
 
     @Override
@@ -65,6 +83,22 @@ public class MainActivity extends FragmentActivity implements
         getMenuInflater().inflate(R.menu.activity_main, menu);
         return true;
     }
+    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        Log.d(TAG, "clicked an item with id " + item.getItemId());
+        Log.d(TAG, "want " + R.id.menu_follow);
+        switch(item.getItemId()) {
+        case R.id.menu_follow:
+            Log.d(TAG, "trying to add followers ");
+            Intent intent = new Intent(ACTION_CREATE_FEED);
+            startActivityForResult(intent, REQUEST_CREATE_FEED);
+            return true;
+        default:
+            return super.onOptionsItemSelected(item);
+        }
+    }
 
     @Override
     public boolean onNavigationItemSelected(int position, long id) {
@@ -77,6 +111,30 @@ public class MainActivity extends FragmentActivity implements
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.container, fragment).commit();
         return true;
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_CREATE_FEED && resultCode == RESULT_OK) {
+            if (data == null || data.getData() == null) {
+                return;
+            }
+            
+            // TODO: save feed uri
+            Uri feedUri = data.getData();
+            Log.d(TAG, "feedUri: " + feedUri);
+            
+            DbFeed feed = mMusubi.getFeed(feedUri);
+            Log.d(TAG, "me: " + feed.getLocalUser().getId() + ", " + feed.getLocalUser().getName());
+            
+            // TODO: save members (these are the people I follow)
+            List<DbIdentity> members = feed.getMembers();
+            for (DbIdentity member : members) {
+                if (member.getLocalId() != feed.getLocalUser().getLocalId()) {
+                    Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
+                }
+            }
+        }
     }
 
     /**
