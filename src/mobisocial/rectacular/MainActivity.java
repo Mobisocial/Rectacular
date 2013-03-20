@@ -130,7 +130,7 @@ public class MainActivity extends FragmentActivity implements
             // TODO: save members (these are the people I follow)
             List<DbIdentity> members = feed.getMembers();
             for (DbIdentity member : members) {
-                if (member.getLocalId() != feed.getLocalUser().getLocalId()) {
+                if (!member.isOwned()) {
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
                 }
             }
