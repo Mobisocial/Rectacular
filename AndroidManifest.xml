@@ -27,6 +27,11 @@
 		        <action android:name="mobisocial.intent.action.DATA_RECEIVED"/>
 		    </intent-filter>
         </receiver>
+        <receiver android:name="mobisocial.rectacular.services.AppInstallReceiver">
+            <intent-filter>
+		        <action android:name="android.intent.action.PACKAGE_ADDED"/>
+		    </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
