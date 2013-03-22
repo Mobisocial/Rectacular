@@ -8,5 +8,9 @@
     <string name="hello_world">Hello world!</string>
     <string name="menu_settings">Settings</string>
     <string name="follow">Friends</string>
+    <string name="cancel">Cancel</string>
+    <string name="google_play">Play Store</string>
+    <string name="install_musubi">Install Musubi from the Play Store?</string>
+    <string name="no_musubi">Musubi Not Installed</string>
 
 </resources>

@@ -10,11 +10,15 @@ import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.Musubi;
 import mobisocial.socialkit.obj.MemObj;
 import android.app.ActionBar;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -72,7 +76,9 @@ public class MainActivity extends FragmentActivity implements
                                 getString(R.string.title_section2),
                                 getString(R.string.title_section3), }), this);
         
-        mMusubi = Musubi.getInstance(this);
+        if (Musubi.isMusubiInstalled(this)) {
+            mMusubi = Musubi.getInstance(this);
+        }
     }
 
     @Override
@@ -105,6 +111,12 @@ public class MainActivity extends FragmentActivity implements
         Log.d(TAG, "want " + R.id.menu_follow);
         switch(item.getItemId()) {
         case R.id.menu_follow:
+            if (mMusubi == null) {
+                // get people to the market to install Musubi
+                Log.d(TAG, "Musubi not installed");
+                new InstallMusubiDialogFragment().show(getSupportFragmentManager(), null);
+                return super.onOptionsItemSelected(item);
+            }
             Log.d(TAG, "trying to add followers ");
             String action = ACTION_CREATE_FEED;
             int request = REQUEST_CREATE_FEED;
@@ -192,6 +204,28 @@ public class MainActivity extends FragmentActivity implements
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
                 }
             }
+        }
+    }
+    
+    private class InstallMusubiDialogFragment extends DialogFragment {
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // Use the Builder class for convenient dialog construction
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setMessage(R.string.install_musubi)
+                   .setTitle(R.string.no_musubi)
+                   .setPositiveButton(R.string.google_play, new DialogInterface.OnClickListener() {
+                       public void onClick(DialogInterface dialog, int id) {
+                           Intent market = Musubi.getMarketIntent();
+                           getActivity().startActivity(market);
+                       }
+                   })
+                   .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                       public void onClick(DialogInterface dialog, int id) {
+                       }
+                   });
+            // Create the AlertDialog object and return it
+            return builder.create();
         }
     }
 
