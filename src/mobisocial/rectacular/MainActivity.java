@@ -2,11 +2,16 @@ package mobisocial.rectacular;
 
 import java.util.List;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import mobisocial.socialkit.musubi.DbFeed;
 import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.Musubi;
+import mobisocial.socialkit.obj.MemObj;
 import android.app.ActionBar;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 
@@ -30,11 +35,20 @@ public class MainActivity extends FragmentActivity implements
      * current dropdown position.
      */
     private static final String STATE_SELECTED_NAVIGATION_ITEM = "selected_navigation_item";
-    
+
     private static final String ACTION_CREATE_FEED = "musubi.intent.action.CREATE_FEED";
+    private static final String ACTION_EDIT_FEED = "musubi.intent.action.EDIT_FEED";
+    
     private static final int REQUEST_CREATE_FEED = 1;
+    private static final int REQUEST_EDIT_FEED = 2;
+    
+    private static final String ADD_TITLE = "member_header";
+    private static final String ADD_HEADER = "Following";
 
     private static final String TAG = "MainActivity";
+    
+    private static final String PREFS_FILE = "mobisocial.rectacular.preferences";
+    private static final String PREFS_FEED_URI = "feed_uri";
     
     private Musubi mMusubi;
 
@@ -92,8 +106,26 @@ public class MainActivity extends FragmentActivity implements
         switch(item.getItemId()) {
         case R.id.menu_follow:
             Log.d(TAG, "trying to add followers ");
-            Intent intent = new Intent(ACTION_CREATE_FEED);
-            startActivityForResult(intent, REQUEST_CREATE_FEED);
+            String action = ACTION_CREATE_FEED;
+            int request = REQUEST_CREATE_FEED;
+            Uri feedUri = null;
+            SharedPreferences p = getSharedPreferences(PREFS_FILE, 0);
+            String strUri = p.getString(PREFS_FEED_URI, null);
+            if (strUri != null) {
+                // If we already have a feed Uri, then just reuse it
+                feedUri = Uri.parse(strUri);
+                DbFeed feed = mMusubi.getFeed(feedUri);
+                if (feed != null) {
+                    action = ACTION_EDIT_FEED;
+                    request = REQUEST_EDIT_FEED;
+                }
+            }
+            Intent intent = new Intent(action);
+            if (feedUri != null) {
+                intent.setData(feedUri);
+                intent.putExtra(ADD_TITLE, ADD_HEADER);
+            }
+            startActivityForResult(intent, request);
             return true;
         default:
             return super.onOptionsItemSelected(item);
@@ -120,14 +152,40 @@ public class MainActivity extends FragmentActivity implements
                 return;
             }
             
-            // TODO: save feed uri
             Uri feedUri = data.getData();
             Log.d(TAG, "feedUri: " + feedUri);
+            
+            // save the feed uri
+            SharedPreferences p = getSharedPreferences(PREFS_FILE, 0);
+            p.edit().putString(PREFS_FEED_URI, feedUri.toString()).commit();
             
             DbFeed feed = mMusubi.getFeed(feedUri);
             Log.d(TAG, "me: " + feed.getLocalUser().getId() + ", " + feed.getLocalUser().getName());
             
+            JSONObject json = new JSONObject();
+            try {
+                json.put("working", true);
+            } catch (JSONException e) {
+                Log.e(TAG, "json issue", e);
+                return;
+            }
+            
+            feed.postObj(new MemObj("rectacular", json));
+            
             // TODO: save members (these are the people I follow)
+            List<DbIdentity> members = feed.getMembers();
+            for (DbIdentity member : members) {
+                if (!member.isOwned()) {
+                    Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
+                }
+            }
+        } else if (requestCode == REQUEST_EDIT_FEED && resultCode == RESULT_OK) {
+            if (data == null || data.getData() == null) {
+                return;
+            }
+            Uri feedUri = data.getData();
+            Log.d(TAG, "feedUri: " + feedUri);
+            DbFeed feed = mMusubi.getFeed(feedUri);
             List<DbIdentity> members = feed.getMembers();
             for (DbIdentity member : members) {
                 if (!member.isOwned()) {

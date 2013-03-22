@@ -1,5 +1,7 @@
 package mobisocial.rectacular.services;
 
+import org.json.JSONObject;
+
 import mobisocial.socialkit.musubi.DbObj;
 import mobisocial.socialkit.musubi.Musubi;
 import android.content.BroadcastReceiver;
@@ -27,6 +29,14 @@ public class MessageReceiver extends BroadcastReceiver {
         
         Musubi musubi = Musubi.forIntent(context, intent);
         DbObj obj = musubi.objForUri(objUri);
+        
+        JSONObject json = obj.getJson();
+        if (json == null) {
+            Log.d(TAG, "no json attached to obj");
+            return;
+        }
+        Log.d(TAG, "json: " + json);
+        
         if (obj.getSender().isOwned()) {
             return; // TODO: maybe do something else with messages I send
         }
