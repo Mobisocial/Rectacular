@@ -33,6 +33,11 @@ public class MEntry {
     public static final String COL_COUNT = "ent_count";
     
     /**
+     * Count among following
+     */
+    public static final String COL_FOLLOWING_COUNT = "ent_following_count";
+    
+    /**
      * Optional thumbnail
      */
     public static final String COL_THUMBNAIL = "thumbnail";
@@ -42,6 +47,7 @@ public class MEntry {
     public String name;
     public Boolean owned;
     public Long count;
+    public Long followingCount;
     public byte[] thumbnail;
     
     public enum EntryType {

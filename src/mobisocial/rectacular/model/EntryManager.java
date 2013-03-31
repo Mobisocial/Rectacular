@@ -16,6 +16,7 @@ public class EntryManager extends ManagerBase {
         MEntry.COL_NAME,
         MEntry.COL_OWNED,
         MEntry.COL_COUNT,
+        MEntry.COL_FOLLOWING_COUNT,
         MEntry.COL_THUMBNAIL
     };
     
@@ -24,7 +25,8 @@ public class EntryManager extends ManagerBase {
     private static final int name = 2;
     private static final int owned = 3;
     private static final int count = 4;
-    private static final int thumbnail = 5;
+    private static final int followingCount = 5;
+    private static final int thumbnail = 6;
 
     private SQLiteStatement sqlInsertEntry;
     private SQLiteStatement sqlUpdateEntryCount;
@@ -55,8 +57,9 @@ public class EntryManager extends ManagerBase {
                         .append(MEntry.COL_NAME).append(",")
                         .append(MEntry.COL_OWNED).append(",")
                         .append(MEntry.COL_COUNT).append(",")
+                        .append(MEntry.COL_FOLLOWING_COUNT).append(",")
                         .append(MEntry.COL_THUMBNAIL)
-                        .append(") VALUES (?,?,?,?,?)");
+                        .append(") VALUES (?,?,?,?,?,?)");
                     sqlInsertEntry = db.compileStatement(sql.toString());
                 }
             }
@@ -66,6 +69,7 @@ public class EntryManager extends ManagerBase {
             bindField(sqlInsertEntry, name, entry.name);
             bindField(sqlInsertEntry, owned, entry.owned);
             bindField(sqlInsertEntry, count, 0); // inserted entries always have 0 owners
+            bindField(sqlInsertEntry, followingCount, 0); // inserted entries always have 0 owners
             bindField(sqlInsertEntry, thumbnail, entry.thumbnail);
             entry.id = sqlInsertEntry.executeInsert();
         }
@@ -74,8 +78,11 @@ public class EntryManager extends ManagerBase {
     /**
      * Increment the number of times the entry has been seen
      * @param entry MEntry object with valid id
+     * @param addOne Whether or not to add to the total count
+     * @param addFollowing Whether or not to add to the following count
      */
-    public void updateCount(long entryId) {
+    public void updateCount(long entryId, boolean addOne, boolean addFollowing) {
+        if (!addOne && !addFollowing) return;
         SQLiteDatabase db = initializeDatabase();
         if (sqlUpdateEntryCount == null) {
             synchronized(this) {
@@ -84,14 +91,18 @@ public class EntryManager extends ManagerBase {
                         .append("UPDATE ").append(MEntry.TABLE)
                         .append(" SET ")
                         .append(MEntry.COL_COUNT).append("=")
-                        .append(MEntry.COL_COUNT).append("+1")
+                        .append(MEntry.COL_COUNT).append("+?,")
+                        .append(MEntry.COL_FOLLOWING_COUNT).append("=")
+                        .append(MEntry.COL_FOLLOWING_COUNT).append("+?")
                         .append(" WHERE ").append(MEntry.COL_ID).append("=?");
                     sqlUpdateEntryCount = db.compileStatement(sql.toString());
                 }
             }
         }
         synchronized(sqlUpdateEntryCount) {
-            bindField(sqlUpdateEntryCount, 1, entryId);
+            bindField(sqlUpdateEntryCount, 1, addOne ? 1 : 0);
+            bindField(sqlUpdateEntryCount, 2, addFollowing ? 1 : 0);
+            bindField(sqlUpdateEntryCount, 3, entryId);
             sqlUpdateEntryCount.executeUpdateDelete();
         }
     }
@@ -150,19 +161,20 @@ public class EntryManager extends ManagerBase {
      * Insert an entry, or update it if it already exists
      * @param type EntryType of the entry
      * @param name String name of the entry
-     * @param increment true to add to the count, false otherwise
+     * @param incrementCt true to add to the count, false otherwise
+     * @param incrementFct true to add to the following count, false otherwise
      * @param setOwned Whether or not to set as owned
      * @return
      */
-    public MEntry ensureEntry(EntryType type, String name, boolean increment, boolean setOwned) {
+    public MEntry ensureEntry(
+            EntryType type, String name,
+            boolean incrementCt, boolean incrementFCt, boolean setOwned) {
         SQLiteDatabase db = initializeDatabase();
         db.beginTransaction();
         try {
             MEntry entry = getEntry(type, name);
             if (entry != null) {
-                if (increment) {
-                    updateCount(entry.id);
-                }
+                updateCount(entry.id, incrementCt, incrementFCt);
                 if (setOwned && !entry.owned) {
                     entry.owned = true;
                     updateOwned(entry);
@@ -279,6 +291,7 @@ public class EntryManager extends ManagerBase {
         entry.name = c.getString(name);
         entry.owned = (c.getLong(owned) == 1) ? true : false;
         entry.count = c.getLong(count);
+        entry.followingCount = c.getLong(followingCount);
         if (!c.isNull(thumbnail)) {
             entry.thumbnail = c.getBlob(thumbnail);
         }

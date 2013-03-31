@@ -1,10 +1,17 @@
 package mobisocial.rectacular;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import mobisocial.rectacular.model.FeedManager;
+import mobisocial.rectacular.model.FollowingManager;
+import mobisocial.rectacular.model.MEntry.EntryType;
+import mobisocial.rectacular.model.MFeed;
+import mobisocial.rectacular.model.MFollowing;
 import mobisocial.socialkit.musubi.DbFeed;
 import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.Musubi;
@@ -14,7 +21,7 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Bundle;
 
@@ -51,10 +58,10 @@ public class MainActivity extends FragmentActivity implements
 
     private static final String TAG = "MainActivity";
     
-    private static final String PREFS_FILE = "mobisocial.rectacular.preferences";
-    private static final String PREFS_FEED_URI = "feed_uri";
-    
     private Musubi mMusubi;
+    
+    private FeedManager mFeedManager;
+    private FollowingManager mFollowingManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +86,10 @@ public class MainActivity extends FragmentActivity implements
         if (Musubi.isMusubiInstalled(this)) {
             mMusubi = Musubi.getInstance(this);
         }
+        
+        SQLiteOpenHelper databaseSource = App.getDatabaseSource(this);
+        mFeedManager = new FeedManager(databaseSource);
+        mFollowingManager = new FollowingManager(databaseSource);
     }
 
     @Override
@@ -121,15 +132,18 @@ public class MainActivity extends FragmentActivity implements
             String action = ACTION_CREATE_FEED;
             int request = REQUEST_CREATE_FEED;
             Uri feedUri = null;
-            SharedPreferences p = getSharedPreferences(PREFS_FILE, 0);
-            String strUri = p.getString(PREFS_FEED_URI, null);
-            if (strUri != null) {
-                // If we already have a feed Uri, then just reuse it
-                feedUri = Uri.parse(strUri);
+            MFeed feedEntry = mFeedManager.getFeed(EntryType.App); // TODO: make this generic
+            if (feedEntry != null) {
+                feedUri = feedEntry.feedUri;
+            }
+            if (feedUri != null) {
                 DbFeed feed = mMusubi.getFeed(feedUri);
                 if (feed != null) {
                     action = ACTION_EDIT_FEED;
                     request = REQUEST_EDIT_FEED;
+                } else {
+                    // Delete broken feed entries
+                    mFeedManager.deleteFeed(EntryType.App); // TODO: make this generic
                 }
             }
             Intent intent = new Intent(action);
@@ -168,8 +182,10 @@ public class MainActivity extends FragmentActivity implements
             Log.d(TAG, "feedUri: " + feedUri);
             
             // save the feed uri
-            SharedPreferences p = getSharedPreferences(PREFS_FILE, 0);
-            p.edit().putString(PREFS_FEED_URI, feedUri.toString()).commit();
+            MFeed feedEntry = new MFeed();
+            feedEntry.feedUri = feedUri;
+            feedEntry.type = EntryType.App; // TODO: make this generic
+            mFeedManager.insertFeed(feedEntry);
             
             DbFeed feed = mMusubi.getFeed(feedUri);
             Log.d(TAG, "me: " + feed.getLocalUser().getId() + ", " + feed.getLocalUser().getName());
@@ -184,11 +200,16 @@ public class MainActivity extends FragmentActivity implements
             
             feed.postObj(new MemObj("rectacular", json));
             
-            // TODO: save members (these are the people I follow)
+            // Save members (these are the people I follow)
             List<DbIdentity> members = feed.getMembers();
             for (DbIdentity member : members) {
                 if (!member.isOwned()) {
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
+                    MFollowing following = new MFollowing();
+                    following.feedId = feedEntry.id;
+                    following.userId = member.getId();
+                    mFollowingManager.insertFollowing(following);
+                    // TODO: update each member
                 }
             }
         } else if (requestCode == REQUEST_EDIT_FEED && resultCode == RESULT_OK) {
@@ -197,11 +218,24 @@ public class MainActivity extends FragmentActivity implements
             }
             Uri feedUri = data.getData();
             Log.d(TAG, "feedUri: " + feedUri);
+            MFeed feedEntry = mFeedManager.getFeed(EntryType.App); // TODO: make this generic
+            Set<MFollowing> followingSet = mFollowingManager.getFollowing(feedEntry.id);
+            Set<String> userIds = new HashSet<String>();
+            for (MFollowing following : followingSet) {
+                userIds.add(following.userId);
+            }
             DbFeed feed = mMusubi.getFeed(feedUri);
             List<DbIdentity> members = feed.getMembers();
             for (DbIdentity member : members) {
                 if (!member.isOwned()) {
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
+                    if (!userIds.contains(member.getId())) {
+                        MFollowing following = new MFollowing();
+                        following.feedId = feedEntry.id;
+                        following.userId = member.getId();
+                        mFollowingManager.insertFollowing(following);
+                        // TODO: update the new members
+                    }
                 }
             }
         }

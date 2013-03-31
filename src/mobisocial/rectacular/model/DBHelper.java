@@ -23,6 +23,7 @@ public class DBHelper extends SQLiteOpenHelper {
                 MEntry.COL_NAME, "TEXT NOT NULL",
                 MEntry.COL_OWNED, "INTEGER NOT NULL",
                 MEntry.COL_COUNT, "INTEGER NOT NULL",
+                MEntry.COL_FOLLOWING_COUNT, "INTEGER NOT NULL",
                 MEntry.COL_THUMBNAIL, "BLOB");
         
         createTable(db, MUserEntry.TABLE,
@@ -35,6 +36,16 @@ public class DBHelper extends SQLiteOpenHelper {
                 MFollower.COL_USER_ID, "TEXT NOT NULL",
                 MFollower.COL_TYPE, "INTEGER NOT NULL",
                 MFollower.COL_FEED_URI, "TEXT NOT NULL");
+        
+        createTable(db, MFeed.TABLE,
+                MFeed.COL_ID, "INTEGER PRIMARY KEY",
+                MFeed.COL_TYPE, "INTEGER NOT NULL",
+                MFeed.COL_FEED_URI, "TEXT NOT NULL");
+        
+        createTable(db, MFollowing.TABLE,
+                MFollowing.COL_ID, "INTEGER PRIMARY KEY",
+                MFollowing.COL_FEED_ID, "INTEGER NOT NULL",
+                MFollowing.COL_USER_ID, "TEXT NOT NULL");
         
         db.execSQL("CREATE INDEX " + MEntry.TABLE + "_type ON " +
                 MEntry.TABLE + "(" + MEntry.COL_TYPE + ")");
