@@ -43,7 +43,7 @@ public class FollowingManager extends ManagerBase {
                         .append("(")
                         .append(MFollowing.COL_FEED_ID).append(",")
                         .append(MFollowing.COL_USER_ID)
-                        .append(") VALUES (?,?");
+                        .append(") VALUES (?,?)");
                     sqlInsertFollowing = db.compileStatement(sql.toString());
                 }
             }

@@ -230,6 +230,7 @@ public class MainActivity extends FragmentActivity implements
                 if (!member.isOwned()) {
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
                     if (!userIds.contains(member.getId())) {
+                        Log.d(TAG, "added: " + member.getId() + ", " + member.getName());
                         MFollowing following = new MFollowing();
                         following.feedId = feedEntry.id;
                         following.userId = member.getId();
