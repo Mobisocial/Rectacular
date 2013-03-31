@@ -12,6 +12,7 @@ import mobisocial.rectacular.model.FollowingManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
 import mobisocial.rectacular.model.MFeed;
 import mobisocial.rectacular.model.MFollowing;
+import mobisocial.rectacular.services.AppListProcessor;
 import mobisocial.socialkit.musubi.DbFeed;
 import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.Musubi;
@@ -90,6 +91,9 @@ public class MainActivity extends FragmentActivity implements
         SQLiteOpenHelper databaseSource = App.getDatabaseSource(this);
         mFeedManager = new FeedManager(databaseSource);
         mFollowingManager = new FollowingManager(databaseSource);
+        
+        AppListProcessor processor = AppListProcessor.newInstance(this, databaseSource);
+        processor.dispatchChange(false, null);
     }
 
     @Override
