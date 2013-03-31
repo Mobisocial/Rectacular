@@ -214,6 +214,7 @@ public class MainActivity extends FragmentActivity implements
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
             builder.setMessage(R.string.install_musubi)
                    .setTitle(R.string.no_musubi)
+                   .setIcon(R.drawable.musubi_icon)
                    .setPositiveButton(R.string.google_play, new DialogInterface.OnClickListener() {
                        public void onClick(DialogInterface dialog, int id) {
                            Intent market = Musubi.getMarketIntent();
