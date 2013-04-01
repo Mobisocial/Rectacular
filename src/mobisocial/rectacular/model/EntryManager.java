@@ -219,6 +219,30 @@ public class EntryManager extends ManagerBase {
     }
     
     /**
+     * Get all entries of a given type
+     * @param type EntryType of the desired type
+     * @return List of MEntry objects
+     */
+    public List<MEntry> getEntries(EntryType type) {
+        SQLiteDatabase db = initializeDatabase();
+        String table = MEntry.TABLE;
+        String selection = MEntry.COL_TYPE + "=?";
+        String[] selectionArgs = new String[]{ Integer.toString(type.ordinal()) };
+        String groupBy = null, having = null;
+        String orderBy = MEntry.COL_COUNT + " DESC";
+        Cursor c = db.query(table, STANDARD_FIELDS, selection, selectionArgs, groupBy, having, orderBy);
+        try {
+            List<MEntry> entries = new ArrayList<MEntry>();
+            while (c.moveToNext()) {
+                entries.add(fillInStandardFields(c));
+            }
+            return entries;
+        } finally {
+            c.close();
+        }
+    }
+    
+    /**
      * Get the entities of a given type most common amongst followed users.
      * @param type The type of entry desired
      * @param lim The maximum number to fetch (null if no limit)

@@ -3,6 +3,7 @@ package mobisocial.rectacular.services;
 import java.util.List;
 
 import mobisocial.rectacular.model.EntryManager;
+import mobisocial.rectacular.model.FeedManager;
 import mobisocial.rectacular.model.FollowerManager;
 import mobisocial.rectacular.model.UserEntryManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
@@ -25,6 +26,7 @@ public class AppListProcessor extends ContentObserver {
     @SuppressWarnings("unused")
     private final FollowerManager mFollowerManager;
     @SuppressWarnings("unused")
+    private final FeedManager mFeedManager;
     private final Musubi mMusubi;
     
     public static AppListProcessor newInstance(Context context, SQLiteOpenHelper dbh) {
@@ -40,6 +42,7 @@ public class AppListProcessor extends ContentObserver {
         mEntryManager = new EntryManager(dbh);
         mUserEntryManager = new UserEntryManager(dbh);
         mFollowerManager = new FollowerManager(dbh);
+        mFeedManager = new FeedManager(dbh);
         if (Musubi.isMusubiInstalled(context)) {
             mMusubi = Musubi.getInstance(context);
         } else {
