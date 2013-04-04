@@ -7,6 +7,7 @@ import mobisocial.rectacular.model.FeedManager;
 import mobisocial.rectacular.model.FollowerManager;
 import mobisocial.rectacular.model.UserEntryManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
+import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.Musubi;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -53,13 +54,18 @@ public class AppListProcessor extends ContentObserver {
     @Override
     public void onChange(boolean selfChange) {
         Log.d(TAG, "onChange");
+        if (mMusubi == null) return;
         PackageManager pm = mContext.getPackageManager();
         List<ApplicationInfo> apps = pm.getInstalledApplications(0);
+        List<DbIdentity> myIdentities = mMusubi.users(null);
         for (ApplicationInfo app : apps) {
             String name = (String)pm.getApplicationLabel(app);
             Log.d(TAG, "Installed App: " + name);
             // TODO: do something interesting with this
-            mUserEntryManager.ensureUserEntry(mEntryManager, EntryType.App, name, true, "", true);
+            for (DbIdentity ident : myIdentities) { // all owned identities
+                mUserEntryManager.ensureUserEntry(
+                        mEntryManager, EntryType.App, name, true, ident.getId(), true);
+            }
         }
     }
 

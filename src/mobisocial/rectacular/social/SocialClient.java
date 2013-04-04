@@ -1,10 +1,8 @@
 package mobisocial.rectacular.social;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.json.JSONArray;
@@ -184,7 +182,7 @@ public class SocialClient {
     }
     
     /**
-     * Handle a collection of entries sent here. This includes notifying the my followers as well.
+     * Handle a collection of entries sent here. This includes notifying my followers as well.
      * @param obj The original DbObj
      * @param dbEntries JSONArray of entries
      * @param type EntryType of the content
@@ -200,21 +198,45 @@ public class SocialClient {
             Log.e(TAG, "json entry parse error", e);
             return;
         }
-        for (Entry entry : entries) {
-            MFeed typeFeed = mFeedManager.getFeed(type);
-            Set<String> following = new HashSet<String>();
-            if (typeFeed != null) {
-                Set<MFollowing> dbFollowings = mFollowingManager.getFollowing(typeFeed.id);
-                for (MFollowing dbFollowing : dbFollowings) {
-                    following.add(dbFollowing.userId);
-                }
-            }
-            for (@SuppressWarnings("unused") String owner : entry.owners) {
-                if (typeFeed != null) {
-                    
-                }
+        
+        // get the followers
+        MFeed typeFeed = mFeedManager.getFeed(type);
+        Set<String> following = new HashSet<String>();
+        if (typeFeed != null) {
+            Set<MFollowing> dbFollowings = mFollowingManager.getFollowing(typeFeed.id);
+            for (MFollowing dbFollowing : dbFollowings) {
+                following.add(dbFollowing.userId);
             }
         }
+        
+        // ensure that we track all owners
+        List<Entry> outgoing = new LinkedList<Entry>();
+        SQLiteDatabase db = mDatabaseSource.getWritableDatabase();
+        for (Entry entry : entries) {
+            for (String owner : entry.owners) {
+                mUserEntryManager.ensureUserEntry(
+                        mEntryManager, type, entry.name, false, owner, following.contains(owner));
+            }
+            
+            // add to report list if owned by direct following
+            if (entry.owned) {
+                MEntry dbEntry = null;
+                try {
+                    // unfortunately need a transaction because of weak consistency
+                    db.beginTransaction();
+                    dbEntry = mEntryManager.getEntry(type, entry.name);
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
+                // next level ownership must be relative to me
+                entry.owned = (dbEntry != null) ? dbEntry.owned : false;
+                outgoing.add(entry);
+            }
+        }
+        
+        // notify all followers
+        postToFollowers(outgoing, mFollowerManager.getFollowers(type), type);
     }
     
     /**
