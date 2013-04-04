@@ -1,5 +1,8 @@
 package mobisocial.rectacular.model;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import mobisocial.rectacular.model.MEntry.EntryType;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -117,6 +120,30 @@ public class UserEntryManager extends ManagerBase {
             } else {
                 return null;
             }
+        } finally {
+            c.close();
+        }
+    }
+    
+    /**
+     * Get all users for an entry
+     * @param entryId MEntry id
+     * @return List of MUserEntry objects
+     */
+    public List<MUserEntry> getUserEntries(long entryId) {
+        SQLiteDatabase db = initializeDatabase();
+        String table = MUserEntry.TABLE;
+        String[] columns = STANDARD_FIELDS;
+        String selection = MUserEntry.COL_ENTRY_ID + "=?";
+        String[] selectionArgs = new String[]{ Long.toString(entryId) };
+        String groupBy = null, having = null, orderBy = null;
+        Cursor c = db.query(table, columns, selection, selectionArgs, groupBy, having, orderBy);
+        try {
+            List<MUserEntry> entries = new LinkedList<MUserEntry>();
+            while (c.moveToNext()) {
+                entries.add(fillInStandardFields(c));
+            }
+            return entries;
         } finally {
             c.close();
         }

@@ -1,9 +1,11 @@
 package mobisocial.rectacular.social;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -13,14 +15,21 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
+import android.util.Base64;
 import android.util.Log;
 
 import mobisocial.rectacular.App;
 import mobisocial.rectacular.model.EntryManager;
+import mobisocial.rectacular.model.FeedManager;
 import mobisocial.rectacular.model.FollowerManager;
+import mobisocial.rectacular.model.FollowingManager;
 import mobisocial.rectacular.model.MEntry;
 import mobisocial.rectacular.model.MEntry.EntryType;
+import mobisocial.rectacular.model.MFeed;
 import mobisocial.rectacular.model.MFollower;
+import mobisocial.rectacular.model.MFollowing;
+import mobisocial.rectacular.model.MUserEntry;
+import mobisocial.rectacular.model.UserEntryManager;
 import mobisocial.socialkit.musubi.DbFeed;
 import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.DbObj;
@@ -34,7 +43,8 @@ public class SocialClient {
     private static final String ENTRIES = "entries";
     private static final String NAME = "name";
     private static final String OWNED = "owned";
-    private static final String COUNT = "count";
+    private static final String OWNERS = "owners";
+    private static final String EXTRA = "extra";
     
     private static final String HELLO = "hello";
     private static final String TO = "to";
@@ -42,35 +52,35 @@ public class SocialClient {
     private final Musubi mMusubi;
     private final SQLiteOpenHelper mDatabaseSource;
     private final EntryManager mEntryManager;
+    private final UserEntryManager mUserEntryManager;
+    private final FeedManager mFeedManager;
     private final FollowerManager mFollowerManager;
+    private final FollowingManager mFollowingManager;
     
     public SocialClient(Musubi musubi, Context context) {
         mMusubi = musubi;
         mDatabaseSource = App.getDatabaseSource(context);
         mEntryManager = new EntryManager(mDatabaseSource);
+        mUserEntryManager = new UserEntryManager(mDatabaseSource);
+        mFeedManager = new FeedManager(mDatabaseSource);
         mFollowerManager = new FollowerManager(mDatabaseSource);
+        mFollowingManager = new FollowingManager(mDatabaseSource);
     }
     
     /**
      * Sends a collection of entries to entry followers
-     * @param entries Collection of entries, and whether or not they're owned
-     * @param counts Number of times each entry appears
+     * @param entries List of entries
      * @param followers The followers to contact
      * @param type Type of the entry
      */
-    public void postToFollowers(
-            Map<String, Boolean> entries, Map<String, Long> counts,
-            List<MFollower> followers, EntryType type) {
+    public void postToFollowers(List<Entry> entries, List<MFollower> followers, EntryType type) {
         JSONObject json = new JSONObject();
         try {
             json.put(TYPE, type.name());
             JSONArray arr = new JSONArray();
-            for (Map.Entry<String, Boolean> entry : entries.entrySet()) {
+            for (Entry entry : entries) {
                 // Single entry
-                JSONObject jsonEntry = new JSONObject();
-                jsonEntry.put(NAME, entry.getKey());
-                jsonEntry.put(OWNED, entry.getValue());
-                jsonEntry.put(COUNT, counts.get(entry.getKey()));
+                JSONObject jsonEntry = entryToJson(entry);
                 arr.put(jsonEntry);
             }
             json.put(ENTRIES, arr);
@@ -138,22 +148,21 @@ public class SocialClient {
     }
     
     /**
-     * Handle a "hello" DbObj
+     * Handle a "hello" DbObj by sending back my and my friends' content
      * @param obj The original DbObj
      * @param type EntryType of the content
      */
     private void handleHello(DbObj obj, EntryType type) {
+        // Add the follower if not already known
         mFollowerManager.ensureFollower(
                 type, obj.getSender().getId(), obj.getContainingFeed().getUri());
-        List<MEntry> entries = mEntryManager.getEntries(type);
-        Map<String, Boolean> owned = new HashMap<String, Boolean>();
-        Map<String, Long> counts = new HashMap<String, Long>();
-        for (MEntry entry : entries) {
-            if (entry.owned || entry.followingCount > 0L) {
-                owned.put(entry.name, entry.owned);
-                long extra = entry.owned ? 1 : 0;
-                // friend count + me
-                counts.put(entry.name, entry.followingCount + extra);
+        
+        // Populate the entries (mine and my friends' only)
+        List<MEntry> dbEntries = mEntryManager.getEntries(type);
+        List<Entry> entries = new LinkedList<Entry>();
+        for (MEntry dbEntry : dbEntries) { // TODO: this is inefficient
+            if (dbEntry.owned || dbEntry.followingCount > 0L) {
+                entries.add(dbEntryToEntry(dbEntry));
             }
         }
         
@@ -170,15 +179,113 @@ public class SocialClient {
         } finally {
             db.endTransaction();
         }
+        
+        postToFollowers(entries, followers, type);
     }
     
     /**
-     * Handle a collection of entries sent here. This includes notifying the user's followers as well.
+     * Handle a collection of entries sent here. This includes notifying the my followers as well.
      * @param obj The original DbObj
-     * @param entries JSONArray of entries
+     * @param dbEntries JSONArray of entries
      * @param type EntryType of the content
      */
-    private void handleEntries(DbObj obj, JSONArray entries, EntryType type) {
-        // TODO: implement
+    private void handleEntries(DbObj obj, JSONArray dbEntries, EntryType type) {
+        // TODO: finish this
+        List<Entry> entries = new LinkedList<Entry>();
+        try {
+            for (int i = 0; i < dbEntries.length(); i++) {
+                entries.add(jsonToEntry(dbEntries.getJSONObject(i)));
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "json entry parse error", e);
+            return;
+        }
+        for (Entry entry : entries) {
+            MFeed typeFeed = mFeedManager.getFeed(type);
+            Set<String> following = new HashSet<String>();
+            if (typeFeed != null) {
+                Set<MFollowing> dbFollowings = mFollowingManager.getFollowing(typeFeed.id);
+                for (MFollowing dbFollowing : dbFollowings) {
+                    following.add(dbFollowing.userId);
+                }
+            }
+            for (@SuppressWarnings("unused") String owner : entry.owners) {
+                if (typeFeed != null) {
+                    
+                }
+            }
+        }
+    }
+    
+    /**
+     * Converts an Entry object into a sendable JSONObject
+     * @param entry Entry object with fields completed
+     * @return JSONObject
+     */
+    private JSONObject entryToJson(Entry entry) {
+        JSONObject result = new JSONObject();
+        try {
+            result.put(TYPE, entry.type.ordinal());
+            result.put(NAME, entry.name);
+            result.put(OWNED, entry.owned);
+            JSONArray owners = new JSONArray();
+            for (String owner : entry.owners) {
+                owners.put(owner);
+            }
+            result.put(OWNERS, owners);
+            if (entry.extra != null) {
+                result.put(EXTRA, Base64.encodeToString(entry.extra, 0));
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "error creating json", e);
+        }
+        return result;
+    }
+    
+    /**
+     * Converts a received JSONObject into an Entry
+     * @param json JSONObject received
+     * @return Entry object
+     */
+    private Entry jsonToEntry(JSONObject json) {
+        try {
+            Entry result = new Entry();
+            result.type = EntryType.values()[json.getInt(TYPE)];
+            result.name = json.getString(NAME);
+            result.owned = json.getBoolean(OWNED);
+            JSONArray owners = json.getJSONArray(OWNERS);
+            result.owners = new HashSet<String>();
+            for (int i = 0; i < owners.length(); i++) {
+                result.owners.add(owners.getString(i));
+            }
+            if (json.has(EXTRA)) {
+                result.extra = Base64.decode(json.getString(EXTRA), 0);
+            }
+            return result;
+        } catch (JSONException e) {
+            Log.w(TAG, "error parsing json");
+            return null;
+        }
+    }
+    
+    /**
+     * Convert a database-backed MEntry into an Entry
+     * @param dbEntry MEntry object
+     * @return Entry object
+     */
+    private Entry dbEntryToEntry(MEntry dbEntry) {
+        Entry entry = new Entry();
+        entry.type = dbEntry.type;
+        entry.name = dbEntry.name;
+        entry.owned = dbEntry.owned;
+        if (dbEntry.thumbnail != null) {
+            entry.extra = dbEntry.thumbnail;
+        }
+        List<MUserEntry> userEntries = mUserEntryManager.getUserEntries(dbEntry.id);
+        entry.owners = new HashSet<String>();
+        for (MUserEntry userEntry : userEntries) {
+            entry.owners.add(userEntry.userId);
+        }
+        return entry;
     }
 }
