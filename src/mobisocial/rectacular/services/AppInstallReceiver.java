@@ -15,6 +15,8 @@ public class AppInstallReceiver extends BroadcastReceiver {
             return;
         }
         Log.d(TAG, "uri: " + intent.getData().toString());
+        
+        // TODO: do something with this information
     }
 
 }

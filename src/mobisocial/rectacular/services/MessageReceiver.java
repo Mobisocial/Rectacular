@@ -2,6 +2,7 @@ package mobisocial.rectacular.services;
 
 import org.json.JSONObject;
 
+import mobisocial.rectacular.social.SocialClient;
 import mobisocial.socialkit.musubi.DbObj;
 import mobisocial.socialkit.musubi.Musubi;
 import android.content.BroadcastReceiver;
@@ -41,7 +42,9 @@ public class MessageReceiver extends BroadcastReceiver {
             return; // TODO: maybe do something else with messages I send
         }
         
-        // TODO: process this message
+        // Let the wrappers handle the obj
+        SocialClient sc = new SocialClient(musubi, context);
+        sc.handleIncomingObj(obj);
     }
 
 }

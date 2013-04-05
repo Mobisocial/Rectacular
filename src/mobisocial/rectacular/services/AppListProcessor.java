@@ -2,9 +2,8 @@ package mobisocial.rectacular.services;
 
 import java.util.List;
 
+import mobisocial.rectacular.App;
 import mobisocial.rectacular.model.EntryManager;
-import mobisocial.rectacular.model.FeedManager;
-import mobisocial.rectacular.model.FollowerManager;
 import mobisocial.rectacular.model.UserEntryManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
 import mobisocial.socialkit.musubi.DbIdentity;
@@ -24,10 +23,6 @@ public class AppListProcessor extends ContentObserver {
     private final Context mContext;
     private final EntryManager mEntryManager;
     private final UserEntryManager mUserEntryManager;
-    @SuppressWarnings("unused")
-    private final FollowerManager mFollowerManager;
-    @SuppressWarnings("unused")
-    private final FeedManager mFeedManager;
     private final Musubi mMusubi;
     
     public static AppListProcessor newInstance(Context context, SQLiteOpenHelper dbh) {
@@ -42,8 +37,6 @@ public class AppListProcessor extends ContentObserver {
         mContext = context;
         mEntryManager = new EntryManager(dbh);
         mUserEntryManager = new UserEntryManager(dbh);
-        mFollowerManager = new FollowerManager(dbh);
-        mFeedManager = new FeedManager(dbh);
         if (Musubi.isMusubiInstalled(context)) {
             mMusubi = Musubi.getInstance(context);
         } else {
@@ -67,6 +60,11 @@ public class AppListProcessor extends ContentObserver {
                         mEntryManager, EntryType.App, name, true, ident.getId(), true);
             }
         }
+        
+        // Save the state indicating that apps were fetched and saved
+        mContext.getSharedPreferences(App.PREFS_FILE, 0)
+            .edit().putBoolean(App.PREF_APP_SETUP_COMPLETE, true).commit();
+        mContext.getContentResolver().notifyChange(App.URI_APP_SETUP_COMPLETE, null);
     }
 
 }

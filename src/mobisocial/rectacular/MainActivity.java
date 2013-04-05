@@ -1,6 +1,7 @@
 package mobisocial.rectacular;
 
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -13,6 +14,7 @@ import mobisocial.rectacular.model.MEntry.EntryType;
 import mobisocial.rectacular.model.MFeed;
 import mobisocial.rectacular.model.MFollowing;
 import mobisocial.rectacular.services.AppListProcessor;
+import mobisocial.rectacular.social.SocialClient;
 import mobisocial.socialkit.musubi.DbFeed;
 import mobisocial.socialkit.musubi.DbIdentity;
 import mobisocial.socialkit.musubi.Musubi;
@@ -20,11 +22,14 @@ import mobisocial.socialkit.obj.MemObj;
 import android.app.ActionBar;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
@@ -59,10 +64,13 @@ public class MainActivity extends FragmentActivity implements
 
     private static final String TAG = "MainActivity";
     
+    // These should all be "final" but we initialize in onChange
     private Musubi mMusubi;
     
     private FeedManager mFeedManager;
     private FollowingManager mFollowingManager;
+    
+    private ProgressDialog mProgressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,8 +100,21 @@ public class MainActivity extends FragmentActivity implements
         mFeedManager = new FeedManager(databaseSource);
         mFollowingManager = new FollowingManager(databaseSource);
         
-        AppListProcessor processor = AppListProcessor.newInstance(this, databaseSource);
-        processor.dispatchChange(false, null);
+        // Register a listener for setup completion
+        AppSetupCompleteObserver appSetupCompleteObserver =
+                new AppSetupCompleteObserver(new Handler(getMainLooper()));
+        getContentResolver().registerContentObserver(
+                App.URI_APP_SETUP_COMPLETE, false, appSetupCompleteObserver);
+
+        // Fetch app data if it hasn't been fetched yet
+        boolean appSetupComplete = getSharedPreferences(App.PREFS_FILE, 0)
+                .getBoolean(App.PREF_APP_SETUP_COMPLETE, false);
+        if (!appSetupComplete && mMusubi != null) {
+            // Show a spinner until it's time to go
+            mProgressDialog = ProgressDialog.show(this, "Please Wait", "Loading your apps...");
+            AppListProcessor processor = AppListProcessor.newInstance(this, databaseSource);
+            processor.dispatchChange(false, null);
+        }
     }
 
     @Override
@@ -206,6 +227,7 @@ public class MainActivity extends FragmentActivity implements
             
             // Save members (these are the people I follow)
             List<DbIdentity> members = feed.getMembers();
+            List<String> toNotify = new LinkedList<String>();
             for (DbIdentity member : members) {
                 if (!member.isOwned()) {
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
@@ -213,9 +235,13 @@ public class MainActivity extends FragmentActivity implements
                     following.feedId = feedEntry.id;
                     following.userId = member.getId();
                     mFollowingManager.insertFollowing(following);
-                    // TODO: update each member
+                    toNotify.add(following.userId);
                 }
             }
+            
+            // Send a hello to new members
+            SocialClient sc = new SocialClient(mMusubi, this);
+            sc.sendHello(feedUri, toNotify, EntryType.App); // TODO: make this generic
         } else if (requestCode == REQUEST_EDIT_FEED && resultCode == RESULT_OK) {
             if (data == null || data.getData() == null) {
                 return;
@@ -230,6 +256,7 @@ public class MainActivity extends FragmentActivity implements
             }
             DbFeed feed = mMusubi.getFeed(feedUri);
             List<DbIdentity> members = feed.getMembers();
+            List<String> toNotify = new LinkedList<String>();
             for (DbIdentity member : members) {
                 if (!member.isOwned()) {
                     Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
@@ -239,10 +266,14 @@ public class MainActivity extends FragmentActivity implements
                         following.feedId = feedEntry.id;
                         following.userId = member.getId();
                         mFollowingManager.insertFollowing(following);
-                        // TODO: update the new members
+                        toNotify.add(following.userId);
                     }
                 }
             }
+            
+            // Send a hello to new members
+            SocialClient sc = new SocialClient(mMusubi, this);
+            sc.sendHello(feedUri, toNotify, EntryType.App); // TODO: make this generic
         }
     }
     
@@ -266,6 +297,19 @@ public class MainActivity extends FragmentActivity implements
                    });
             // Create the AlertDialog object and return it
             return builder.create();
+        }
+    }
+    
+    private class AppSetupCompleteObserver extends ContentObserver {
+        public AppSetupCompleteObserver(Handler handler) {
+            super(handler);
+        }
+        
+        @Override
+        public void onChange(boolean selfChange) {
+            if (mProgressDialog != null) {
+                mProgressDialog.dismiss();
+            }
         }
     }
 
