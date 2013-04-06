@@ -77,7 +77,7 @@ public class EntryManager extends ManagerBase {
     
     /**
      * Increment the number of times the entry has been seen
-     * @param entry MEntry object with valid id
+     * @param entryId MEntry id
      * @param addOne Whether or not to add to the total count
      * @param addFollowing Whether or not to add to the following count
      */
@@ -162,9 +162,9 @@ public class EntryManager extends ManagerBase {
      * @param type EntryType of the entry
      * @param name String name of the entry
      * @param incrementCt true to add to the count, false otherwise
-     * @param incrementFct true to add to the following count, false otherwise
+     * @param incrementFCt true to add to the following count, false otherwise
      * @param setOwned Whether or not to set as owned
-     * @return
+     * @return MEntry object
      */
     public MEntry ensureEntry(
             EntryType type, String name,
