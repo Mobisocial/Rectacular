@@ -296,7 +296,7 @@ public class SocialClient {
      * @param dbEntry MEntry object
      * @return Entry object
      */
-    private Entry dbEntryToEntry(MEntry dbEntry) {
+    public Entry dbEntryToEntry(MEntry dbEntry) {
         Entry entry = new Entry();
         entry.type = dbEntry.type;
         entry.name = dbEntry.name;
