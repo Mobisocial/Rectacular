@@ -159,7 +159,7 @@ public class SocialClient {
         List<MEntry> dbEntries = mEntryManager.getEntries(type);
         List<Entry> entries = new LinkedList<Entry>();
         for (MEntry dbEntry : dbEntries) { // TODO: this is inefficient
-            if (dbEntry.owned || dbEntry.followingCount > 0L) {
+            if (dbEntry.followingCount > 0L) {
                 entries.add(dbEntryToEntry(dbEntry));
             }
         }

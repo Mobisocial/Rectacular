@@ -27,9 +27,15 @@ public class MessageReceiver extends BroadcastReceiver {
             Log.d(TAG, "no object found");
             return;
         }
+        Log.d(TAG, "obj uri: " + objUri.toString());
         
         Musubi musubi = Musubi.forIntent(context, intent);
         DbObj obj = musubi.objForUri(objUri);
+        
+        if (obj == null) {
+            Log.d(TAG, "obj is null?");
+            return;
+        }
         
         JSONObject json = obj.getJson();
         if (json == null) {
