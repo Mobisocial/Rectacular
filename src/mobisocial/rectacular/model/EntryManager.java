@@ -185,6 +185,7 @@ public class EntryManager extends ManagerBase {
                 entry.name = name;
                 entry.owned = setOwned;
                 entry.count = 0L;
+                entry.followingCount = 0L;
                 insertEntry(entry);
             }
             db.setTransactionSuccessful();
@@ -227,6 +228,30 @@ public class EntryManager extends ManagerBase {
         SQLiteDatabase db = initializeDatabase();
         String table = MEntry.TABLE;
         String selection = MEntry.COL_TYPE + "=?";
+        String[] selectionArgs = new String[]{ Integer.toString(type.ordinal()) };
+        String groupBy = null, having = null;
+        String orderBy = MEntry.COL_COUNT + " DESC";
+        Cursor c = db.query(table, STANDARD_FIELDS, selection, selectionArgs, groupBy, having, orderBy);
+        try {
+            List<MEntry> entries = new ArrayList<MEntry>();
+            while (c.moveToNext()) {
+                entries.add(fillInStandardFields(c));
+            }
+            return entries;
+        } finally {
+            c.close();
+        }
+    }
+    
+    /**
+     * Get all entries of a given type no more than 1 level away
+     * @param type EntryType of the desired type
+     * @return List of MEntry objects
+     */
+    public List<MEntry> getOneLevelEntries(EntryType type) {
+        SQLiteDatabase db = initializeDatabase();
+        String table = MEntry.TABLE;
+        String selection = MEntry.COL_TYPE + "=? AND " + MEntry.COL_FOLLOWING_COUNT + "> 0";
         String[] selectionArgs = new String[]{ Integer.toString(type.ordinal()) };
         String groupBy = null, having = null;
         String orderBy = MEntry.COL_COUNT + " DESC";

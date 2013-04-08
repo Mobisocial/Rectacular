@@ -9,7 +9,7 @@ public class DBHelper extends SQLiteOpenHelper {
     private static final String TAG = "DBHelper";
     
     private static final String DB_NAME = "Rectacular.db";
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     
     public DBHelper(Context context) {
         super(context, DB_NAME, null, VERSION);
@@ -52,9 +52,14 @@ public class DBHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX " + MEntry.TABLE + "_type_name ON " +
                 MEntry.TABLE + "(" + MEntry.COL_TYPE + "," +
                 MEntry.COL_NAME + ")");
-        
+        db.execSQL("CREATE INDEX " + MEntry.TABLE + "_type_fct ON " +
+                MEntry.TABLE + "(" + MEntry.COL_TYPE + "," +
+                MEntry.COL_FOLLOWING_COUNT + ")");
+
         db.execSQL("CREATE INDEX " + MUserEntry.TABLE + "_user ON " +
                 MUserEntry.TABLE + "(" + MUserEntry.COL_USER_ID + ")");
+        db.execSQL("CREATE INDEX " + MUserEntry.TABLE + "_entry ON " +
+                MUserEntry.TABLE + "(" + MUserEntry.COL_ENTRY_ID + ")");
         
         db.execSQL("CREATE INDEX " + MFollower.TABLE + "_type ON " +
                 MFollower.TABLE + "(" + MFollower.COL_TYPE + ")");
@@ -67,6 +72,14 @@ public class DBHelper extends SQLiteOpenHelper {
         }
         
         if (oldVersion <= 1) {
+            db.execSQL("CREATE INDEX " + MEntry.TABLE + "_type_fct ON " +
+                    MEntry.TABLE + "(" + MEntry.COL_TYPE + "," +
+                    MEntry.COL_FOLLOWING_COUNT + ")");
+            db.execSQL("CREATE INDEX " + MUserEntry.TABLE + "_entry ON " +
+                    MUserEntry.TABLE + "(" + MUserEntry.COL_ENTRY_ID + ")");
+        }
+        
+        if (oldVersion <= 2) {
             // etc...
         }
         

@@ -70,8 +70,9 @@ public class SocialClient {
      * @param entries List of entries
      * @param followers The followers to contact
      * @param type Type of the entry
+     * @param exclude A user to exclude, if any
      */
-    public void postToFollowers(List<Entry> entries, List<MFollower> followers, EntryType type) {
+    public void postToFollowers(List<Entry> entries, List<MFollower> followers, EntryType type, String exclude) {
         JSONObject json = new JSONObject();
         try {
             json.put(TYPE, type.name());
@@ -156,7 +157,7 @@ public class SocialClient {
                 type, obj.getSender().getId(), obj.getContainingFeed().getUri());
         
         // Populate the entries (mine and my friends' only)
-        List<MEntry> dbEntries = mEntryManager.getEntries(type);
+        List<MEntry> dbEntries = mEntryManager.getOneLevelEntries(type);
         List<Entry> entries = new LinkedList<Entry>();
         for (MEntry dbEntry : dbEntries) { // TODO: this is inefficient
             if (dbEntry.followingCount > 0L) {
@@ -178,7 +179,7 @@ public class SocialClient {
             db.endTransaction();
         }
         
-        postToFollowers(entries, followers, type);
+        postToFollowers(entries, followers, type, null);
     }
     
     /**
@@ -236,7 +237,7 @@ public class SocialClient {
         }
         
         // notify all followers
-        postToFollowers(outgoing, mFollowerManager.getFollowers(type), type);
+        postToFollowers(outgoing, mFollowerManager.getFollowers(type), type, obj.getSender().getId());
     }
     
     /**
