@@ -8,8 +8,11 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteStatement;
+import android.util.Log;
 
 public class EntryManager extends ManagerBase {
+    private static final String TAG = "EntryManager";
+    
     private static final String[] STANDARD_FIELDS = {
         MEntry.COL_ID,
         MEntry.COL_TYPE,
@@ -303,20 +306,7 @@ public class EntryManager extends ManagerBase {
      * @return List of MEntry objects
      */
     public List<MEntry> getDiscoveredTopEntries(EntryType type, Long lim) {
-        SQLiteDatabase db = initializeDatabase();
-        String table = MEntry.TABLE;
-        String selection = MEntry.COL_TYPE + "=? AND " + MEntry.COL_OWNED + "=?";
-        String[] selectionArgs = new String[]{
-                Integer.toString(type.ordinal()),
-                Long.toString(0L)
-        };
-        String groupBy = null, having = null;
-        String orderBy = MEntry.COL_COUNT + " DESC";
-        String limit = null;
-        if (lim != null) {
-            limit = lim.toString();
-        }
-        Cursor c = db.query(table, STANDARD_FIELDS, selection, selectionArgs, groupBy, having, orderBy, limit);
+        Cursor c = getDiscoveredTopEntriesCursor(type, lim);
         try {
             List<MEntry> entries = new ArrayList<MEntry>();
             while (c.moveToNext()) {
@@ -329,11 +319,36 @@ public class EntryManager extends ManagerBase {
     }
     
     /**
+     * Get a cursor of top matches
+     * @param type EntryType of the entry
+     * @param lim Maximum number to return
+     * @return Cursor object
+     */
+    public Cursor getDiscoveredTopEntriesCursor(EntryType type, Long lim) {
+        SQLiteDatabase db = initializeDatabase();
+        String table = MEntry.TABLE;
+        String selection = MEntry.COL_TYPE + "=? AND " + MEntry.COL_OWNED + "=?";
+        String[] selectionArgs = new String[]{
+                Integer.toString(type.ordinal()),
+                Integer.toString(0)
+        };
+        String groupBy = null, having = null;
+        String orderBy = MEntry.COL_COUNT + " DESC";
+        String limit = null;
+        if (lim != null) {
+            limit = lim.toString();
+        }
+        Cursor c = db.query(table, STANDARD_FIELDS, selection, selectionArgs, groupBy, having, orderBy, limit);
+        Log.d(TAG, "count: " + c.getCount());
+        return c;
+    }
+    
+    /**
      * Convert a database cursor into an MEntry object
      * @param c A valid Cursor from a database query
      * @return MEntry object
      */
-    private MEntry fillInStandardFields(Cursor c) {
+    public MEntry fillInStandardFields(Cursor c) {
         MEntry entry = new MEntry();
         entry.id = c.getLong(_id);
         entry.type = EntryType.values()[(int) c.getLong(type)];

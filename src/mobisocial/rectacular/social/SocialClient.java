@@ -48,6 +48,7 @@ public class SocialClient {
     private static final String TO = "to";
     
     private final Musubi mMusubi;
+    private final Context mContext;
     private final SQLiteOpenHelper mDatabaseSource;
     private final EntryManager mEntryManager;
     private final UserEntryManager mUserEntryManager;
@@ -57,7 +58,8 @@ public class SocialClient {
     
     public SocialClient(Musubi musubi, Context context) {
         mMusubi = musubi;
-        mDatabaseSource = App.getDatabaseSource(context);
+        mContext = context;
+        mDatabaseSource = App.getDatabaseSource(mContext);
         mEntryManager = new EntryManager(mDatabaseSource);
         mUserEntryManager = new UserEntryManager(mDatabaseSource);
         mFeedManager = new FeedManager(mDatabaseSource);
@@ -142,7 +144,12 @@ public class SocialClient {
                 }
             }
         } else if (json.has(TYPE) && json.has(ENTRIES)) {
-            handleEntries(obj, json.optJSONArray(ENTRIES), EntryType.valueOf(json.optString(TYPE)));
+            Uri feedUri = obj.getContainingFeed().getUri();
+            MFeed feed = mFeedManager.getFeed(feedUri);
+            // only process entries sent to my own feeds for the type
+            if (feed != null && feed.type.ordinal() == json.optInt(TYPE)) {
+                handleEntries(obj, json.optJSONArray(ENTRIES), EntryType.valueOf(json.optString(TYPE)));
+            }
         }
     }
     
@@ -235,6 +242,8 @@ public class SocialClient {
                 outgoing.add(entry);
             }
         }
+        
+        mContext.getContentResolver().notifyChange(App.URI_NEW_CONTENT, null);
         
         // notify all followers
         postToFollowers(outgoing, mFollowerManager.getFollowers(type), type, obj.getSender().getId());

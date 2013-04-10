@@ -8,6 +8,7 @@ import java.util.Set;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import mobisocial.rectacular.fragments.AppListFragment;
 import mobisocial.rectacular.model.FeedManager;
 import mobisocial.rectacular.model.FollowingManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
@@ -187,12 +188,18 @@ public class MainActivity extends FragmentActivity implements
     public boolean onNavigationItemSelected(int position, long id) {
         // When the given dropdown item is selected, show its contents in the
         // container view.
-        Fragment fragment = new DummySectionFragment();
-        Bundle args = new Bundle();
-        args.putInt(DummySectionFragment.ARG_SECTION_NUMBER, position + 1);
-        fragment.setArguments(args);
-        getSupportFragmentManager().beginTransaction()
+        if (position == 0) {
+            Fragment fragment = new AppListFragment();
+            getSupportFragmentManager().beginTransaction()
                 .replace(R.id.container, fragment).commit();
+        } else {
+            Fragment fragment = new DummySectionFragment();
+            Bundle args = new Bundle();
+            args.putInt(DummySectionFragment.ARG_SECTION_NUMBER, position + 1);
+            fragment.setArguments(args);
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.container, fragment).commit();
+        }
         return true;
     }
     
