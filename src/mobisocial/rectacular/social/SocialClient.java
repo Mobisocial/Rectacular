@@ -37,6 +37,9 @@ import mobisocial.socialkit.obj.MemObj;
 public class SocialClient {
     private static final String TAG = "SocialClient";
     
+    public static final String HELLO_TYPE = "rectacular_hello";
+    public static final String ENTRIES_TYPE = "rectacular";
+    
     private static final String TYPE = "type";
     private static final String ENTRIES = "entries";
     private static final String NAME = "name";
@@ -92,7 +95,7 @@ public class SocialClient {
         Log.d(TAG, "sending json: " + json.toString());
         for (MFollower follower : followers) {
             DbFeed feed = mMusubi.getFeed(follower.feedUri);
-            feed.postObj(new MemObj("rectacular", json));
+            feed.postObj(new MemObj(ENTRIES_TYPE, json));
         }
     }
     
@@ -118,7 +121,7 @@ public class SocialClient {
         }
         Log.d(TAG, "sending json: " + json.toString());
         DbFeed feed = mMusubi.getFeed(feedUri);
-        feed.postObj(new MemObj("rectacular", json));
+        feed.postObj(new MemObj(HELLO_TYPE, json));
     }
     
     /**

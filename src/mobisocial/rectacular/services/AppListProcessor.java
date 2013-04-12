@@ -6,12 +6,15 @@ import mobisocial.rectacular.App;
 import mobisocial.rectacular.model.EntryManager;
 import mobisocial.rectacular.model.UserEntryManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
+import mobisocial.rectacular.social.SocialClient;
 import mobisocial.socialkit.musubi.DbIdentity;
+import mobisocial.socialkit.musubi.DbObj;
 import mobisocial.socialkit.musubi.Musubi;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.ContentObserver;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -54,11 +57,28 @@ public class AppListProcessor extends ContentObserver {
         for (ApplicationInfo app : apps) {
             String name = (String)pm.getApplicationLabel(app);
             Log.d(TAG, "Installed App: " + name);
-            // TODO: do something interesting with this
             for (DbIdentity ident : myIdentities) { // all owned identities
                 mUserEntryManager.ensureUserEntry(
                         mEntryManager, EntryType.App, name, true, ident.getId(), true);
             }
+        }
+        
+        // See if there are any hellos to respond to
+        Cursor c = mMusubi.queryAppData(
+                new String[] {
+                        DbObj.COL_APP_ID, DbObj.COL_TYPE, DbObj.COL_STRING_KEY, DbObj.COL_JSON,
+                        DbObj.COL_RAW, DbObj.COL_IDENTITY_ID, DbObj.COL_UNIVERSAL_HASH,
+                        DbObj.COL_FEED_ID, DbObj.COL_INT_KEY, DbObj.COL_TIMESTAMP, DbObj.COL_PARENT_ID
+                }, DbObj.COL_TYPE + "=?", new String[] { SocialClient.HELLO_TYPE }, null);
+        SocialClient sc = new SocialClient(mMusubi, mContext);
+        try {
+            while (c != null && c.moveToNext()) {
+                DbObj obj = mMusubi.objForCursor(c);
+                if (obj == null) continue;
+                sc.handleIncomingObj(obj);
+            }
+        } finally {
+            c.close();
         }
         
         // Save the state indicating that apps were fetched and saved
