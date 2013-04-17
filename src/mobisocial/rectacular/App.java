@@ -14,6 +14,8 @@ public class App extends Application {
     // Content URIs
     private static final String URI_SCHEME = "content://";
     private static final String URI_AUTHORITY = "mobisocial.rectacular.db";
+    public static final Uri URI_APP_SETUP = Uri.parse(
+            URI_SCHEME + URI_AUTHORITY + "/app_setup");
     public static final Uri URI_APP_SETUP_COMPLETE = Uri.parse(
             URI_SCHEME + URI_AUTHORITY + "/app_setup_complete");
     public static final Uri URI_NEW_CONTENT = Uri.parse(

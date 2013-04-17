@@ -7,10 +7,13 @@ import mobisocial.rectacular.model.MEntry;
 import mobisocial.rectacular.model.MEntry.EntryType;
 import mobisocial.rectacular.util.SimpleCursorLoader;
 import android.content.Context;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
 import android.view.LayoutInflater;
@@ -29,7 +32,7 @@ public class AppListFragment extends Fragment
     
     private static final long DEFAULT_LIST_LIMIT = 10;
     
-    private Context mContext;
+    private FragmentActivity mActivity;
     
     private EntryManager mEntryManager;
     
@@ -39,30 +42,42 @@ public class AppListFragment extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        mContext = getActivity();
+        mActivity = getActivity();
         
         View v = inflater.inflate(R.layout.top_list, container, false);
         
-        mEntryManager = new EntryManager(App.getDatabaseSource(mContext));
+        mEntryManager = new EntryManager(App.getDatabaseSource(mActivity));
         
         mEntryView = (ListView)v.findViewById(R.id.entry_list);
         mEntryView.setOnItemClickListener(this);
         
-        getActivity().getSupportLoaderManager().initLoader(0, null, this);
+        mActivity.getSupportLoaderManager().initLoader(0, null, this);
+        mActivity.getContentResolver().registerContentObserver(App.URI_NEW_CONTENT, false, new ContentObserver(new Handler(getActivity().getMainLooper())) {
+            @Override
+            public void onChange(boolean selfChange) {
+                mActivity.getSupportLoaderManager().restartLoader(0, null, AppListFragment.this);
+            }
+        });
         
         return v;
+    }
+    
+    @Override
+    public void onResume() {
+        super.onResume();
+        mActivity.getSupportLoaderManager().restartLoader(0, null, this);
     }
 
     @Override
     public Loader<Cursor> onCreateLoader(int arg0, Bundle arg1) {
         EntryType type = EntryType.App;
-        return new EntryLoader(mContext, type);
+        return new EntryLoader(mActivity, type);
     }
 
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
         if (mEntries == null) {
-            mEntries = new EntryListCursorAdapter(mContext, cursor);
+            mEntries = new EntryListCursorAdapter(mActivity, cursor);
         } else {
             mEntries.changeCursor(cursor);
         }

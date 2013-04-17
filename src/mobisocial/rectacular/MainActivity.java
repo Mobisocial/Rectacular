@@ -114,7 +114,8 @@ public class MainActivity extends FragmentActivity implements
             // Show a spinner until it's time to go
             mProgressDialog = ProgressDialog.show(this, "Please Wait", "Loading your apps...");
             AppListProcessor processor = AppListProcessor.newInstance(this, databaseSource);
-            processor.dispatchChange(false, null);
+            getContentResolver().registerContentObserver(App.URI_APP_SETUP, false, processor);
+            getContentResolver().notifyChange(App.URI_APP_SETUP, null);
         }
     }
 

@@ -85,6 +85,7 @@ public class SocialClient {
             for (Entry entry : entries) {
                 // Single entry
                 JSONObject jsonEntry = entryToJson(entry);
+                Log.d(TAG, "sending: " + jsonEntry);
                 arr.put(jsonEntry);
             }
             json.put(ENTRIES, arr);
@@ -92,7 +93,6 @@ public class SocialClient {
             Log.e(TAG, "json issue with post to followers", e);
             return;
         }
-        Log.d(TAG, "sending json: " + json.toString());
         for (MFollower follower : followers) {
             DbFeed feed = mMusubi.getFeed(follower.feedUri);
             feed.postObj(new MemObj(ENTRIES_TYPE, json));
@@ -115,6 +115,10 @@ public class SocialClient {
                 to.put(recipient);
             }
             json.put(TO, to);
+            if (to.length() == 0) {
+                Log.d(TAG, "no hello recipients");
+                return;
+            }
         } catch (JSONException e) {
             Log.e(TAG, "json issue with hello post", e);
             return;
@@ -203,7 +207,9 @@ public class SocialClient {
         List<Entry> entries = new LinkedList<Entry>();
         try {
             for (int i = 0; i < dbEntries.length(); i++) {
-                entries.add(jsonToEntry(dbEntries.getJSONObject(i)));
+                JSONObject single = dbEntries.getJSONObject(i);
+                Log.d(TAG, "entry: " + single.toString());
+                entries.add(jsonToEntry(single));
             }
         } catch (JSONException e) {
             Log.e(TAG, "json entry parse error", e);
