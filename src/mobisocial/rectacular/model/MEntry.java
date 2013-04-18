@@ -42,6 +42,11 @@ public class MEntry {
      */
     public static final String COL_THUMBNAIL = "thumbnail";
     
+    /**
+     * Optional metadata
+     */
+    public static final String COL_METADATA = "metadata";
+    
     public long id;
     public EntryType type;
     public String name;
@@ -49,6 +54,7 @@ public class MEntry {
     public Long count;
     public Long followingCount;
     public byte[] thumbnail;
+    public String metadata;
     
     public enum EntryType {
         App,

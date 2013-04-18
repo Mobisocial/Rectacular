@@ -1,5 +1,6 @@
 package mobisocial.rectacular.model;
 
+import mobisocial.rectacular.App;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -9,10 +10,13 @@ public class DBHelper extends SQLiteOpenHelper {
     private static final String TAG = "DBHelper";
     
     private static final String DB_NAME = "Rectacular.db";
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
+    
+    private Context mContext;
     
     public DBHelper(Context context) {
         super(context, DB_NAME, null, VERSION);
+        mContext = context;
     }
 
     @Override
@@ -24,7 +28,8 @@ public class DBHelper extends SQLiteOpenHelper {
                 MEntry.COL_OWNED, "INTEGER NOT NULL",
                 MEntry.COL_COUNT, "INTEGER NOT NULL",
                 MEntry.COL_FOLLOWING_COUNT, "INTEGER NOT NULL",
-                MEntry.COL_THUMBNAIL, "BLOB");
+                MEntry.COL_THUMBNAIL, "BLOB",
+                MEntry.COL_METADATA, "TEXT");
         
         createTable(db, MUserEntry.TABLE,
                 MUserEntry.COL_ID, "INTEGER PRIMARY KEY",
@@ -80,6 +85,13 @@ public class DBHelper extends SQLiteOpenHelper {
         }
         
         if (oldVersion <= 2) {
+            db.execSQL("ALTER TABLE " + MEntry.TABLE + " ADD COLUMN " + MEntry.COL_METADATA + " TEXT");
+            // Need to start over since metadata is useful
+            mContext.getSharedPreferences(App.PREFS_FILE, 0).edit()
+                .putBoolean(App.PREF_APP_SETUP_COMPLETE, false).commit();
+        }
+        
+        if (oldVersion <= 3) {
             // etc...
         }
         

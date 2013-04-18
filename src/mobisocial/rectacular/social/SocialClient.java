@@ -46,6 +46,7 @@ public class SocialClient {
     private static final String OWNED = "owned";
     private static final String OWNERS = "owners";
     private static final String EXTRA = "extra";
+    private static final String METADATA = "metadata";
     
     private static final String HELLO = "hello";
     private static final String TO = "to";
@@ -232,7 +233,7 @@ public class SocialClient {
         for (Entry entry : entries) {
             for (String owner : entry.owners) {
                 mUserEntryManager.ensureUserEntry(
-                        mEntryManager, type, entry.name, false, owner, following.contains(owner));
+                        mEntryManager, type, entry.name, entry.metadata, false, owner, following.contains(owner));
             }
             
             // add to report list if owned by direct following
@@ -277,6 +278,9 @@ public class SocialClient {
             if (entry.extra != null) {
                 result.put(EXTRA, Base64.encodeToString(entry.extra, 0));
             }
+            if (entry.metadata != null) {
+                result.put(METADATA, entry.metadata);
+            }
         } catch (JSONException e) {
             Log.e(TAG, "error creating json", e);
         }
@@ -302,6 +306,9 @@ public class SocialClient {
             if (json.has(EXTRA)) {
                 result.extra = Base64.decode(json.getString(EXTRA), 0);
             }
+            if (json.has(METADATA)) {
+                result.metadata = json.getString(METADATA);
+            }
             return result;
         } catch (JSONException e) {
             Log.w(TAG, "error parsing json");
@@ -321,6 +328,9 @@ public class SocialClient {
         entry.owned = dbEntry.owned;
         if (dbEntry.thumbnail != null) {
             entry.extra = dbEntry.thumbnail;
+        }
+        if (dbEntry.metadata != null) {
+            entry.metadata = dbEntry.metadata;
         }
         List<MUserEntry> userEntries = mUserEntryManager.getUserEntries(dbEntry.id);
         entry.owners = new HashSet<String>();

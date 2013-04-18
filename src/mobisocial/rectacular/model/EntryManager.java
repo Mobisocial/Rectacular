@@ -20,7 +20,8 @@ public class EntryManager extends ManagerBase {
         MEntry.COL_OWNED,
         MEntry.COL_COUNT,
         MEntry.COL_FOLLOWING_COUNT,
-        MEntry.COL_THUMBNAIL
+        MEntry.COL_THUMBNAIL,
+        MEntry.COL_METADATA
     };
     
     private static final int _id = 0;
@@ -30,11 +31,13 @@ public class EntryManager extends ManagerBase {
     private static final int count = 4;
     private static final int followingCount = 5;
     private static final int thumbnail = 6;
+    private static final int metadata = 7;
 
     private SQLiteStatement sqlInsertEntry;
     private SQLiteStatement sqlUpdateEntryCount;
     private SQLiteStatement sqlUpdateEntryThumbnail;
     private SQLiteStatement sqlUpdateEntryOwned;
+    private SQLiteStatement sqlUpdateEntryMetadata;
 
     public EntryManager(SQLiteDatabase db) {
         super(db);
@@ -61,8 +64,9 @@ public class EntryManager extends ManagerBase {
                         .append(MEntry.COL_OWNED).append(",")
                         .append(MEntry.COL_COUNT).append(",")
                         .append(MEntry.COL_FOLLOWING_COUNT).append(",")
-                        .append(MEntry.COL_THUMBNAIL)
-                        .append(") VALUES (?,?,?,?,?,?)");
+                        .append(MEntry.COL_THUMBNAIL).append(",")
+                        .append(MEntry.COL_METADATA)
+                        .append(") VALUES (?,?,?,?,?,?,?)");
                     sqlInsertEntry = db.compileStatement(sql.toString());
                 }
             }
@@ -74,6 +78,7 @@ public class EntryManager extends ManagerBase {
             bindField(sqlInsertEntry, count, 0); // inserted entries always have 0 owners
             bindField(sqlInsertEntry, followingCount, 0); // inserted entries always have 0 owners
             bindField(sqlInsertEntry, thumbnail, entry.thumbnail);
+            bindField(sqlInsertEntry, metadata, entry.metadata);
             entry.id = sqlInsertEntry.executeInsert();
         }
     }
@@ -161,16 +166,42 @@ public class EntryManager extends ManagerBase {
     }
     
     /**
+     * Set metadata of an entry
+     * @param entry MEntry object
+     */
+    public void updateMetadata(MEntry entry) {
+        SQLiteDatabase db = initializeDatabase();
+        if (sqlUpdateEntryMetadata == null) {
+            synchronized(this) {
+                if (sqlUpdateEntryMetadata == null) {
+                    StringBuilder sql = new StringBuilder()
+                        .append("UPDATE ").append(MEntry.TABLE)
+                        .append(" SET ")
+                        .append(MEntry.COL_METADATA).append("=?")
+                        .append(" WHERE ").append(MEntry.COL_ID).append("=?");
+                    sqlUpdateEntryMetadata = db.compileStatement(sql.toString());
+                }
+            }
+        }
+        synchronized(sqlUpdateEntryMetadata) {
+            bindField(sqlUpdateEntryMetadata, 1, entry.metadata);
+            bindField(sqlUpdateEntryMetadata, 2, entry.id);
+            sqlUpdateEntryMetadata.executeUpdateDelete();
+        }
+    }
+    
+    /**
      * Insert an entry, or update it if it already exists
      * @param type EntryType of the entry
      * @param name String name of the entry
+     * @param metadata Optional String of metadata associated with the entry
      * @param incrementCt true to add to the count, false otherwise
      * @param incrementFCt true to add to the following count, false otherwise
      * @param setOwned Whether or not to set as owned
      * @return MEntry object
      */
     public MEntry ensureEntry(
-            EntryType type, String name,
+            EntryType type, String name, String metadata,
             boolean incrementCt, boolean incrementFCt, boolean setOwned) {
         SQLiteDatabase db = initializeDatabase();
         db.beginTransaction();
@@ -182,6 +213,11 @@ public class EntryManager extends ManagerBase {
                     entry.owned = true;
                     updateOwned(entry);
                 }
+                if (metadata != null &&
+                        (entry.metadata == null || !entry.metadata.equals(metadata))) {
+                    entry.metadata = metadata;
+                    updateMetadata(entry);
+                }
             } else {
                 entry = new MEntry();
                 entry.type = type;
@@ -189,6 +225,7 @@ public class EntryManager extends ManagerBase {
                 entry.owned = setOwned;
                 entry.count = 0L;
                 entry.followingCount = 0L;
+                entry.metadata = metadata;
                 insertEntry(entry);
             }
             db.setTransactionSuccessful();
@@ -358,6 +395,9 @@ public class EntryManager extends ManagerBase {
         entry.followingCount = c.getLong(followingCount);
         if (!c.isNull(thumbnail)) {
             entry.thumbnail = c.getBlob(thumbnail);
+        }
+        if (!c.isNull(metadata)) {
+            entry.metadata = c.getString(metadata);
         }
         return entry;
     }

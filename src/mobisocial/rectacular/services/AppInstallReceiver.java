@@ -39,6 +39,7 @@ public class AppInstallReceiver extends BroadcastReceiver {
             return;
         }
         Log.d(TAG, "app name: " + name);
+        Log.d(TAG, "app package: " + packageName);
         
         if (!Musubi.isMusubiInstalled(context)) {
             return;
@@ -50,7 +51,7 @@ public class AppInstallReceiver extends BroadcastReceiver {
         EntryManager em = new EntryManager(App.getDatabaseSource(context));
         UserEntryManager uem = new UserEntryManager(App.getDatabaseSource(context));
         for (DbIdentity ident : myIdentities) {
-            uem.ensureUserEntry(em, EntryType.App, name, true, ident.getId(), true);
+            uem.ensureUserEntry(em, EntryType.App, name, packageName, true, ident.getId(), true);
         }
         
         // Let followers know

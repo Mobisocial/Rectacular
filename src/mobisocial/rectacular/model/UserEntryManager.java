@@ -88,15 +88,16 @@ public class UserEntryManager extends ManagerBase {
      * @param em EntryManager for updating state
      * @param type EntryType of the entry
      * @param name String name of the entry
+     * @param metadata Optional String of associated metadata
      * @param setOwned Whether or not this entry should be set as owned
      * @param userId String identifier of the user
      * @param isFollowing Whether or not this user is someone followed
      * @return MUserEntry object
      */
     public MUserEntry ensureUserEntry(
-            EntryManager em, EntryType type, String name, boolean setOwned,
-            String userId, boolean isFollowing) {
-        MEntry entry = em.ensureEntry(type, name, false, false, setOwned);
+            EntryManager em, EntryType type, String name, String metadata,
+            boolean setOwned, String userId, boolean isFollowing) {
+        MEntry entry = em.ensureEntry(type, name, metadata, false, false, setOwned);
         return ensureUserEntry(em, entry.id, userId, isFollowing);
     }
     

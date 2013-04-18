@@ -56,10 +56,11 @@ public class AppListProcessor extends ContentObserver {
         List<DbIdentity> myIdentities = mMusubi.users(null);
         for (ApplicationInfo app : apps) {
             String name = (String)pm.getApplicationLabel(app);
+            String packageName = app.packageName;
             Log.d(TAG, "Installed App: " + name);
             for (DbIdentity ident : myIdentities) { // all owned identities
                 mUserEntryManager.ensureUserEntry(
-                        mEntryManager, EntryType.App, name, true, ident.getId(), true);
+                        mEntryManager, EntryType.App, name, packageName, true, ident.getId(), true);
             }
         }
         

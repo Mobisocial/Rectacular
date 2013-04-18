@@ -32,4 +32,9 @@ public class Entry {
      * Optional extra data (e.g. thumbnail)
      */
     public byte[] extra;
+    
+    /**
+     * Optional string metadata
+     */
+    public String metadata;
 }
