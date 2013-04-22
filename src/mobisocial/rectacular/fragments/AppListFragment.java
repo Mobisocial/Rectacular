@@ -1,5 +1,10 @@
 package mobisocial.rectacular.fragments;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+
 import mobisocial.rectacular.App;
 import mobisocial.rectacular.R;
 import mobisocial.rectacular.model.EntryManager;
@@ -7,15 +12,18 @@ import mobisocial.rectacular.model.MEntry;
 import mobisocial.rectacular.model.MEntry.EntryType;
 import mobisocial.rectacular.util.SimpleCursorLoader;
 import android.content.Context;
+import android.content.Intent;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +37,7 @@ import android.widget.TextView;
 public class AppListFragment extends Fragment
     implements LoaderManager.LoaderCallbacks<Cursor>, OnItemClickListener {
     // TODO: this can be generalized
+    private static final String TAG = "AppListFragment";
     
     private static final long DEFAULT_LIST_LIMIT = 10;
     
@@ -39,10 +48,16 @@ public class AppListFragment extends Fragment
     private EntryListCursorAdapter mEntries;
     private ListView mEntryView;
     
+    private Map<View, String> mMetadata;
+    private Map<View, String> mNames;
+    
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         mActivity = getActivity();
+        
+        mMetadata = new HashMap<View, String>();
+        mNames = new HashMap<View, String>();
         
         View v = inflater.inflate(R.layout.top_list, container, false);
         
@@ -113,13 +128,33 @@ public class AppListFragment extends Fragment
             long total = entry.count - (entry.owned ? 1 : 0);
             long friendTotal = entry.followingCount - (entry.owned ? 1 : 0);
             detailsText.setText("Used by " + total + " others (following " + friendTotal + ")");
+            
+            if (entry.metadata != null) {
+                mMetadata.put(view, entry.metadata);
+            }
+            mNames.put(view, entry.name);
         }
     }
 
     @Override
-    public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
-        // TODO Auto-generated method stub
-        
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        // If we have metadata, use that directly, else search by name
+        String metadata = mMetadata.get(view);
+        String name = mNames.get(view);
+        Uri marketUri = null;
+        if (metadata != null) {
+            marketUri = Uri.parse("market://details?id=" + metadata);
+        } else {
+            try {
+                String query = URLEncoder.encode(name, "UTF-8");
+                marketUri = Uri.parse("market://search?q=" + query);
+            } catch (UnsupportedEncodingException e) {
+                Log.e(TAG, "bad encoding", e);
+                return;
+            }
+        }
+        Intent market = new Intent(Intent.ACTION_VIEW, marketUri);
+        mActivity.startActivity(market);
     }
     
     public static class EntryLoader extends SimpleCursorLoader {
