@@ -14,5 +14,8 @@
     <string name="no_musubi">Musubi Not Installed</string>
     <string name="entry_image">Entry</string>
     <string name="no_data">No Data</string>
+    <string name="no_musubi_user">No Musubi Account</string>
+    <string name="add_musubi_user">Please connect an account to Musubi</string>
+    <string name="musubi">Musubi</string>
 
 </resources>

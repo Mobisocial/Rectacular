@@ -150,6 +150,30 @@ public class UserEntryManager extends ManagerBase {
         }
     }
     
+    /**
+     * Get all entries for a user
+     * @param userId String global user id
+     * @return List of MUserEntry objects
+     */
+    public List<MUserEntry> getUserEntries(String userId) {
+        SQLiteDatabase db = initializeDatabase();
+        String table = MUserEntry.TABLE;
+        String[] columns = STANDARD_FIELDS;
+        String selection = MUserEntry.COL_USER_ID + "=?";
+        String[] selectionArgs = new String[]{ userId };
+        String groupBy = null, having = null, orderBy = null;
+        Cursor c = db.query(table, columns, selection, selectionArgs, groupBy, having, orderBy);
+        try {
+            List<MUserEntry> entries = new LinkedList<MUserEntry>();
+            while (c.moveToNext()) {
+                entries.add(fillInStandardFields(c));
+            }
+            return entries;
+        } finally {
+            c.close();
+        }
+    }
+    
     private MUserEntry fillInStandardFields(Cursor c) {
         MUserEntry userEntry = new MUserEntry();
         userEntry.id = c.getLong(_id);

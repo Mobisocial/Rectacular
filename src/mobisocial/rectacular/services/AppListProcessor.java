@@ -50,10 +50,17 @@ public class AppListProcessor extends ContentObserver {
     @Override
     public void onChange(boolean selfChange) {
         Log.d(TAG, "onChange");
-        if (mMusubi == null) return;
+        if (mMusubi == null) {
+            mContext.getContentResolver().notifyChange(App.URI_APP_SETUP_COMPLETE, null);
+            return;
+        }
         PackageManager pm = mContext.getPackageManager();
         List<ApplicationInfo> apps = pm.getInstalledApplications(0);
         List<DbIdentity> myIdentities = mMusubi.users(null);
+        if (myIdentities.size() == 0) {
+            mContext.getContentResolver().notifyChange(App.URI_APP_SETUP_COMPLETE, null);
+            return;
+        }
         for (ApplicationInfo app : apps) {
             String name = (String)pm.getApplicationLabel(app);
             String packageName = app.packageName;

@@ -9,11 +9,14 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import mobisocial.rectacular.fragments.AppListFragment;
+import mobisocial.rectacular.model.EntryManager;
 import mobisocial.rectacular.model.FeedManager;
 import mobisocial.rectacular.model.FollowingManager;
 import mobisocial.rectacular.model.MEntry.EntryType;
 import mobisocial.rectacular.model.MFeed;
 import mobisocial.rectacular.model.MFollowing;
+import mobisocial.rectacular.model.MUserEntry;
+import mobisocial.rectacular.model.UserEntryManager;
 import mobisocial.rectacular.services.AppListProcessor;
 import mobisocial.rectacular.social.SocialClient;
 import mobisocial.socialkit.musubi.DbFeed;
@@ -70,8 +73,12 @@ public class MainActivity extends FragmentActivity implements
     
     private FeedManager mFeedManager;
     private FollowingManager mFollowingManager;
+    private UserEntryManager mUserEntryManager;
+    private EntryManager mEntryManager;
     
     private ProgressDialog mProgressDialog;
+    
+    private AppSetupCompleteObserver mObserver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,9 +96,7 @@ public class MainActivity extends FragmentActivity implements
                 new ArrayAdapter<String>(actionBar.getThemedContext(),
                         android.R.layout.simple_list_item_1,
                         android.R.id.text1, new String[] {
-                                getString(R.string.title_section1),
-                                getString(R.string.title_section2),
-                                getString(R.string.title_section3), }), this);
+                                getString(R.string.title_section1), }), this);
         
         if (Musubi.isMusubiInstalled(this)) {
             mMusubi = Musubi.getInstance(this);
@@ -100,12 +105,13 @@ public class MainActivity extends FragmentActivity implements
         SQLiteOpenHelper databaseSource = App.getDatabaseSource(this);
         mFeedManager = new FeedManager(databaseSource);
         mFollowingManager = new FollowingManager(databaseSource);
+        mUserEntryManager = new UserEntryManager(databaseSource);
+        mEntryManager = new EntryManager(databaseSource);
         
         // Register a listener for setup completion
-        AppSetupCompleteObserver appSetupCompleteObserver =
-                new AppSetupCompleteObserver(new Handler(getMainLooper()));
+        mObserver = new AppSetupCompleteObserver(new Handler(getMainLooper()));
         getContentResolver().registerContentObserver(
-                App.URI_APP_SETUP_COMPLETE, false, appSetupCompleteObserver);
+                App.URI_APP_SETUP_COMPLETE, false, mObserver);
 
         // Fetch app data if it hasn't been fetched yet
         boolean appSetupComplete = getSharedPreferences(App.PREFS_FILE, 0)
@@ -116,6 +122,15 @@ public class MainActivity extends FragmentActivity implements
             AppListProcessor processor = AppListProcessor.newInstance(this, databaseSource);
             getContentResolver().registerContentObserver(App.URI_APP_SETUP, false, processor);
             getContentResolver().notifyChange(App.URI_APP_SETUP, null);
+        }
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        
+        if (mMusubi == null && Musubi.isMusubiInstalled(this)) {
+            mMusubi = Musubi.getInstance(this);
         }
     }
 
@@ -210,46 +225,22 @@ public class MainActivity extends FragmentActivity implements
             if (data == null || data.getData() == null) {
                 return;
             }
-            
             Uri feedUri = data.getData();
             Log.d(TAG, "feedUri: " + feedUri);
             
-            // save the feed uri
-            MFeed feedEntry = new MFeed();
-            feedEntry.feedUri = feedUri;
-            feedEntry.type = EntryType.App; // TODO: make this generic
-            mFeedManager.insertFeed(feedEntry);
-            
-            DbFeed feed = mMusubi.getFeed(feedUri);
-            Log.d(TAG, "me: " + feed.getLocalUser().getId() + ", " + feed.getLocalUser().getName());
-            
-            JSONObject json = new JSONObject();
-            try {
-                json.put("working", true);
-            } catch (JSONException e) {
-                Log.e(TAG, "json issue", e);
-                return;
+            boolean appSetupComplete = getSharedPreferences(App.PREFS_FILE, 0)
+                    .getBoolean(App.PREF_APP_SETUP_COMPLETE, false);
+            if (!appSetupComplete) {
+                DbFeed feed = mMusubi.getFeed(feedUri);
+                feed.insert(new MemObj("rectacular-test", new JSONObject()));
+                mProgressDialog = ProgressDialog.show(this, "Please Wait", "Loading your apps...");
+                getContentResolver().unregisterContentObserver(mObserver);
+                mObserver = new AppSetupCompleteObserver(new Handler(getMainLooper()), feedUri);
+                getContentResolver().registerContentObserver(App.URI_APP_SETUP_COMPLETE, false, mObserver);
+                getContentResolver().notifyChange(App.URI_APP_SETUP, null);
+            } else {
+                initializeFeed(feedUri);
             }
-            
-            feed.postObj(new MemObj("rectacular", json));
-            
-            // Save members (these are the people I follow)
-            List<DbIdentity> members = feed.getMembers();
-            List<String> toNotify = new LinkedList<String>();
-            for (DbIdentity member : members) {
-                if (!member.isOwned()) {
-                    Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
-                    MFollowing following = new MFollowing();
-                    following.feedId = feedEntry.id;
-                    following.userId = member.getId();
-                    mFollowingManager.insertFollowing(following);
-                    toNotify.add(following.userId);
-                }
-            }
-            
-            // Send a hello to new members
-            SocialClient sc = new SocialClient(mMusubi, this);
-            sc.sendHello(feedUri, toNotify, EntryType.App); // TODO: make this generic
         } else if (requestCode == REQUEST_EDIT_FEED && resultCode == RESULT_OK) {
             if (data == null || data.getData() == null) {
                 return;
@@ -279,9 +270,63 @@ public class MainActivity extends FragmentActivity implements
                 }
             }
             
+            promoteRecs(toNotify);
+            
             // Send a hello to new members
             SocialClient sc = new SocialClient(mMusubi, this);
             sc.sendHello(feedUri, toNotify, EntryType.App); // TODO: make this generic
+        }
+    }
+    
+    private void initializeFeed(Uri feedUri) {
+        // save the feed uri
+        MFeed feedEntry = new MFeed();
+        feedEntry.feedUri = feedUri;
+        feedEntry.type = EntryType.App; // TODO: make this generic
+        mFeedManager.insertFeed(feedEntry);
+        
+        DbFeed feed = mMusubi.getFeed(feedUri);
+        Log.d(TAG, "me: " + feed.getLocalUser().getId() + ", " + feed.getLocalUser().getName());
+        
+        JSONObject json = new JSONObject();
+        try {
+            json.put("working", true);
+        } catch (JSONException e) {
+            Log.e(TAG, "json issue", e);
+            return;
+        }
+        
+        feed.postObj(new MemObj("rectacular", json));
+        
+        // Save members (these are the people I follow)
+        List<DbIdentity> members = feed.getMembers();
+        List<String> toNotify = new LinkedList<String>();
+        for (DbIdentity member : members) {
+            if (!member.isOwned()) {
+                Log.d(TAG, "member: " + member.getId() + ", " + member.getName());
+                MFollowing following = new MFollowing();
+                following.feedId = feedEntry.id;
+                following.userId = member.getId();
+                mFollowingManager.insertFollowing(following);
+                toNotify.add(following.userId);
+            }
+        }
+        
+        // Send a hello to new members
+        SocialClient sc = new SocialClient(mMusubi, this);
+        sc.sendHello(feedUri, toNotify, EntryType.App); // TODO: make this generic
+    }
+    
+    /**
+     * Upgrade FoF recommendations to friend recommendations
+     * @param users List of global user ids
+     */
+    private void promoteRecs(List<String> users) {
+        for (String user : users) {
+            List<MUserEntry> userEntries = mUserEntryManager.getUserEntries(user);
+            for (MUserEntry userEntry : userEntries) {
+                mEntryManager.updateCount(userEntry.entryId, false, true);
+            }
         }
     }
     
@@ -309,14 +354,24 @@ public class MainActivity extends FragmentActivity implements
     }
     
     private class AppSetupCompleteObserver extends ContentObserver {
+        private Uri mFeedUri;
         public AppSetupCompleteObserver(Handler handler) {
             super(handler);
+            mFeedUri = null;
+        }
+        
+        public AppSetupCompleteObserver(Handler handler, Uri feedUri) {
+            super(handler);
+            mFeedUri = feedUri;
         }
         
         @Override
         public void onChange(boolean selfChange) {
             if (mProgressDialog != null) {
                 mProgressDialog.dismiss();
+            }
+            if (mFeedUri != null) {
+                initializeFeed(mFeedUri);
             }
         }
     }

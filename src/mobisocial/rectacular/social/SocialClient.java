@@ -95,6 +95,7 @@ public class SocialClient {
             return;
         }
         for (MFollower follower : followers) {
+            if (exclude != null && follower.userId.equals(exclude)) continue;
             DbFeed feed = mMusubi.getFeed(follower.feedUri);
             feed.postObj(new MemObj(ENTRIES_TYPE, json));
         }
